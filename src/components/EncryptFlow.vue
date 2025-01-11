@@ -1,10 +1,12 @@
 <script lang="ts" setup>
 import * as age from 'age-encryption'
+import { breakpointsTailwind, useBreakpoints } from '@vueuse/core'
 
 const input = ref('')
 
+// TODO: can i somehow not have to store passphrase in state?
 const passphrase = ref('')
-// TODO: signal to user if pasphrases was trimmed or modified in some way
+// TODO: signal to user if passphrases was trimmed or modified in some way
 const trimmedPassphrase = computed(() => passphrase.value?.trim() || '')
 
 const passphraseConfirm = ref('')
@@ -25,14 +27,12 @@ const {
 
 const { meta_enter: metaEnter, escape: esc } = useMagicKeys()
 
+const isPassphraseValid = computed(() => trimmedPassphrase.value.length > 0)
+
 whenever(metaEnter, () => {
   if (activeStep.value === 0 && input.value) {
     nextStep()
-  } else if (
-    activeStep.value === 1 &&
-    trimmedPassphrase.value &&
-    trimmedPassphrase.value === trimmedPassphraseConfirm.value
-  ) {
+  } else if (activeStep.value === 1 && trimmedPassphrase.value && !passphraseMismatch.value) {
     nextStep()
   } else if (activeStep.value === 2 && !isEncrypting.value) {
     handleEncrypt()
@@ -49,24 +49,21 @@ whenever(esc, () => {
 const steps = [
   {
     title: 'Enter text',
-    // description: 'Enter or paste the text you want to encrypt',
     icon: 'i-lucide-file-text',
   },
   {
-    title: 'Set Passphrase',
-    // description: 'Enter a passphrase to encrypt your text',
+    title: 'Set passphrase',
     icon: 'i-lucide-key',
   },
   {
     title: 'Encrypt',
-    // description: 'Review and encrypt your text',
     icon: 'i-lucide-lock',
   },
 ]
 
 const getFileName = () => {
-  const date = new Date().toISOString().replace(/[:.]/g, '-')
-  return `encrypted-${date}.age`
+  const timestamp = Date.now()
+  return `${timestamp}.age`
 }
 
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -105,6 +102,11 @@ const handleEncrypt = async () => {
     isEncrypting.value = false
   }
 }
+watch(trimmedPassphrase, (val) => {
+  if (!val) {
+    passphraseConfirm.value = ''
+  }
+})
 
 const passphraseMismatch = computed(() => {
   if (!passphraseConfirm.value?.trim()) {
@@ -136,60 +138,107 @@ const goToStep0 = () => {
   stepStep(0)
 }
 
-const isPassphraseValid = computed(() => trimmedPassphrase.value.length > 0)
-
 const isPassphraseConfirmed = computed(() => {
-  return (
-    trimmedPassphrase.value &&
-    trimmedPassphraseConfirm.value &&
-    trimmedPassphrase.value === trimmedPassphraseConfirm.value
-  )
+  return trimmedPassphrase.value && trimmedPassphraseConfirm.value && !passphraseMismatch.value
 })
 
 const downloadPassphrase = () => {
   const blob = new Blob([trimmedPassphrase.value], { type: 'text/plain' })
-  const date = new Date().toISOString().replace(/[:.]/g, '-')
-  downloadBlob(blob, `passphrase-${date}.txt`)
+  const timestamp = Date.now()
+  downloadBlob(blob, `passphrase_${timestamp}.txt`)
 }
+
+const breakpoints = useBreakpoints(breakpointsTailwind)
+
+watch(activeStep, (newStep) => {
+  if (newStep === 2) {
+    showPassphrase.value = false
+    showPassphraseConfirm.value = false
+  }
+})
 </script>
 
 <template>
   <div>
-    <h1 class="text-primary">age encrypt tool</h1>
+    <h1 class="text-primary text-right">age encrypt tool</h1>
 
-    <UStepper disabled size="sm" v-model="activeStep" :items="steps" class="mt-8">
+    <UStepper
+      :orientation="breakpoints.smallerOrEqual('md') ? 'vertical' : 'horizontal'"
+      size="sm"
+      v-model="activeStep"
+      :items="steps"
+      disabled
+      class="mt-8 pt-8"
+      :ui="{
+        root: 'w-full',
+        item: breakpoints.smallerOrEqual('md') ? 'group text-start relative w-40' : '',
+      }"
+    >
       <template #content>
-        <div class="mt-4 p-4">
+        <div class="ml-4">
           <!-- Step 1: Text Input -->
+
           <div v-if="activeStep === 0">
             <UTextarea
+              aria-label="Text to encrypt"
               autofocus
               v-model="input"
-              class="w-full font-mono"
+              class="w-full"
               :rows="6"
+              autocomplete="off"
+              spellcheck="false"
               placeholder="Enter text to encrypt"
             />
-            <div class="mt-2 flex justify-between items-center gap-2">
+            <div class="mt-3 flex justify-between items-center gap-2">
               <div class="text-xs text-gray-500 flex items-center gap-1">
                 <UKbd size="sm" value="meta" /><UKbd size="sm" value="enter" />
                 to continue
               </div>
-              <UButton size="sm" variant="outline" :disabled="!input" @click="nextStep()">
+              <UButton
+                size="sm"
+                variant="subtle"
+                trailing-icon="i-lucide-arrow-right"
+                :disabled="!input"
+                @click="nextStep()"
+              >
                 Continue
               </UButton>
             </div>
           </div>
 
           <!-- Step 2: Passphrase -->
-          <div v-if="activeStep === 1" class="space-y-4">
+          <div v-if="activeStep === 1" class="space-y-3 -mt-[calc(28px+12px)]">
+            <div class="flex justify-between items-center gap-2">
+              <UButton
+                size="sm"
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-arrow-left"
+                @click="goToStep0()"
+              >
+                Back
+              </UButton>
+            </div>
+
+            <UAlert
+              size="sm"
+              color="neutral"
+              variant="subtle"
+              title="Set your passphrase"
+              description="Your passphrase will be used to encrypt the content. You will be asked to confirm it. Make sure to save it securely."
+              icon="i-lucide-key"
+            />
+
             <UFormField>
               <UInput
                 autofocus
+                aria-label="Passphrase"
                 v-model="passphrase"
                 :type="showPassphrase ? 'text' : 'password'"
                 class="w-full font-mono"
                 placeholder="Enter passphrase"
                 data-1p-ignore
+                size="sm"
                 @keydown="handlePassphraseKeydown"
               >
                 <template #trailing>
@@ -201,7 +250,6 @@ const downloadPassphrase = () => {
                     :icon="showPassphrase ? 'i-lucide-eye-off' : 'i-lucide-eye'"
                     :aria-label="showPassphrase ? 'Hide password' : 'Show password'"
                     :aria-pressed="showPassphrase"
-                    data-1p-ignore
                     @click="toggleShowPassphrase()"
                   />
                 </template>
@@ -210,12 +258,14 @@ const downloadPassphrase = () => {
 
             <UFormField v-if="isPassphraseValid" :error="passphraseMismatch">
               <UInput
+                aria-label="Confirm passphrase"
                 v-model="passphraseConfirm"
                 :type="showPassphraseConfirm ? 'text' : 'password'"
                 class="w-full font-mono"
                 placeholder="Confirm passphrase"
                 autocomplete="off"
                 data-1p-ignore
+                size="sm"
                 @keydown="handlePassphraseConfirmKeydown"
               >
                 <template #trailing>
@@ -234,52 +284,74 @@ const downloadPassphrase = () => {
             </UFormField>
 
             <div class="flex justify-between gap-2">
-              <UButton size="sm" variant="ghost" @click="goToStep0"> Back </UButton>
               <UButton
+                trailing-icon="i-lucide-arrow-right"
+                class="ml-auto"
                 size="sm"
-                variant="outline"
+                variant="subtle"
                 v-if="isPassphraseValid && trimmedPassphraseConfirm.length && !passphraseMismatch"
                 :disabled="!isPassphraseConfirmed"
                 @click="nextStep()"
               >
-                Confirm
+                Continue
               </UButton>
             </div>
           </div>
 
           <!-- Step 3: Review & Download -->
-          <div v-if="activeStep === 2" class="space-y-4">
+          <div v-if="activeStep === 2" class="space-y-3 -mt-[calc(28px+12px)]">
+            <div class="flex justify-between items-center gap-2">
+              <UButton
+                size="sm"
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-arrow-left"
+                @click="prevStep()"
+              >
+                Back
+              </UButton>
+
+              <UButton size="sm" variant="ghost" icon="i-lucide-refresh-cw" @click="resetForm()">
+                Start Over
+              </UButton>
+            </div>
+
             <UAlert
+              size="sm"
               color="primary"
               variant="subtle"
               title="Ready to encrypt"
-              description="Your text will be encrypted and saved with a unique name based on the current timestamp. Make sure to save your passphrase in a secure location - you'll need it to decrypt the file later."
+              description="Your content is ready to be encrypted. The encrypted file will download
+                automatically. Save your passphrase—you’ll need it to decrypt."
               icon="i-lucide-lock"
             />
 
-            <div class="flex justify-between items-center gap-2">
-              <UButton size="sm" variant="ghost" @click="prevStep()"> Back </UButton>
-
-              <div class="flex gap-2">
-                <UButton
-                  size="sm"
-                  variant="ghost"
-                  icon="i-lucide-download"
-                  @click="downloadPassphrase"
-                >
-                  Save Passphrase
-                </UButton>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2 w-full">
                 <div class="text-xs text-gray-500 flex items-center gap-1">
                   <UKbd size="sm" value="meta" /><UKbd size="sm" value="enter" /> to encrypt
                 </div>
-                <UButton variant="outline" size="sm" :loading="isEncrypting" @click="handleEncrypt">
-                  Encrypt
+
+                <UButton
+                  icon="i-lucide-lock"
+                  size="sm"
+                  :loading="isEncrypting"
+                  @click="handleEncrypt"
+                  autofocus
+                >
+                  Encrypt and download
                 </UButton>
               </div>
-            </div>
-
-            <div>
-              <UButton size="sm" variant="ghost" @click="resetForm()"> Start Over </UButton>
+              <div class="flex items-center justify-end gap-2 w-full">
+                <UButton
+                  icon="i-lucide-download"
+                  size="sm"
+                  variant="ghost"
+                  @click="downloadPassphrase"
+                >
+                  Download passphrase
+                </UButton>
+              </div>
             </div>
           </div>
         </div>

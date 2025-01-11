@@ -2,9 +2,9 @@
 
 <template>
   <UApp>
-    <div class="font-mono max-w-lg w-full p-3 mx-auto min-h-screen">
+    <div class="font-mono max-w-2xl w-full py-8 px-3 mx-auto min-h-screen">
       <main>
-        <AgeDemo />
+        <EncryptFlow />
       </main>
     </div>
   </UApp>
