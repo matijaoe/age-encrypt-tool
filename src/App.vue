@@ -1,13 +1,11 @@
-<script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
-</script>
+<script setup lang="ts"></script>
 
 <template>
   <UApp>
-    <header>
-      <div class="wrapper">
-        <HelloWorld msg="You did it!" />
-      </div>
-    </header>
+    <div class="max-w-xl w-full p-6 mx-auto min-h-screen">
+      <main>
+        <AgeDemo />
+      </main>
+    </div>
   </UApp>
 </template>
