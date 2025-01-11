@@ -1,3 +1,4 @@
+import '@fontsource-variable/victor-mono'
 import './assets/main.css'
 
 import { createApp } from 'vue'

@@ -20,7 +20,7 @@ export default defineConfig({
       },
     }),
     AutoImport({
-      imports: ['vue', 'vue-router'],
+      imports: ['vue', 'vue-router', '@vueuse/core'],
     }),
   ],
   resolve: {

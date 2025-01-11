@@ -2,7 +2,7 @@
 
 <template>
   <UApp>
-    <div class="max-w-xl w-full p-6 mx-auto min-h-screen">
+    <div class="font-mono max-w-lg w-full p-3 mx-auto min-h-screen">
       <main>
         <AgeDemo />
       </main>
